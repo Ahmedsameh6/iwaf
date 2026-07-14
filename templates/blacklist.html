@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Blacklist — IWAF{% endblock %}
+{% block breadcrumb %}Blacklist{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-slash-circle-fill" style="color:var(--danger);font-size:20px"></i> Blacklist Management</div>
+
+{% if current_user.role == 'admin' %}
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-plus-circle-fill"></i> Block an IP Address</span>
+    </div>
+    <div class="panel-body">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+                <label class="f-label">IP Address to Block</label>
+                <input type="text" class="f-input" id="block-ip" placeholder="e.g., 192.168.1.100" maxlength="15">
+            </div>
+            <button class="btn-red" onclick="handleBlock()" style="padding:10px 22px">
+                <i class="bi bi-slash-circle"></i> Block IP
+            </button>
+        </div>
+        <div id="block-msg"></div>
+    </div>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-list-ul"></i> Blacklisted IPs</span>
+        <span id="bl-count" style="font-size:12px;color:var(--text-muted);font-weight:600"></span>
+    </div>
+    <div class="panel-body" id="blacklist-list">
+        <div style="text-align:center;padding:24px"><span class="spin"></span></div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function fetchBlacklist() {
+    fetch('/blacklist').then(r => r.json()).then(d => {
+        const el = document.getElementById('blacklist-list');
+        const list = (d.blacklist || []).sort();
+        const cnt = document.getElementById('bl-count');
+        cnt.textContent = `${list.length} IP${list.length !== 1 ? 's' : ''}`;
+        el.innerHTML = list.length === 0
+            ? '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px"><i class="bi bi-check-circle-fill" style="font-size:32px;color:var(--success);display:block;margin-bottom:8px"></i>No IPs blacklisted</div>'
+            : list.map(ip => `
+                <div class="ip-row">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0"></div>
+                        <span class="ip-mono">${ip}</span>
+                    </div>
+                    ${currentUserRole === 'admin' ? `
+                    <button class="btn-ghost" onclick="handleDelete('${ip}')" style="font-size:12px;padding:5px 12px;color:var(--danger);border-color:var(--danger-light)">
+                        <i class="bi bi-unlock-fill"></i> Unblock
+                    </button>` : ''}
+                </div>`).join('');
+    });
+}
+
+function handleBlock() {
+    const ip = document.getElementById('block-ip').value.trim();
+    if (!ip) return showMsg('block-msg', 'Please enter an IP address', 'danger');
+    if (!isValidIP(ip)) return showMsg('block-msg', 'Invalid IP address format (e.g. 192.168.1.1)', 'danger');
+    fetch(`/block/${ip}`, { method: 'POST' }).then(r => r.json()).then(d => {
+        showMsg('block-msg', d.message, d.status === 'success' ? 'success' : 'info');
+        if (d.status === 'success') { document.getElementById('block-ip').value = ''; fetchBlacklist(); }
+    }).catch(() => showMsg('block-msg', 'Request failed', 'danger'));
+}
+
+function handleDelete(ip) {
+    if (!confirm(`Unblock ${ip}?`)) return;
+    fetch(`/unblock/${ip}`, { method: 'POST' }).then(r => r.json()).then(d => {
+        showMsg('block-msg', d.message, d.status === 'success' ? 'success' : 'info');
+        fetchBlacklist();
+    });
+}
+
+document.getElementById('block-ip')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleBlock(); });
+document.addEventListener('DOMContentLoaded', fetchBlacklist);
+</script>
+{% endblock %}

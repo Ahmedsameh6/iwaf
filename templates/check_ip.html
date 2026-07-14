@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Check IP — IWAF{% endblock %}
+{% block breadcrumb %}Check IP{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-search" style="color:var(--primary);font-size:20px"></i> IP Reputation Check</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-globe2"></i> Check IP via VirusTotal</span>
+            </div>
+            <div class="panel-body">
+                <label class="f-label">IP Address</label>
+                <input type="text" class="f-input" id="check-ip" placeholder="e.g., 8.8.8.8" maxlength="15" style="margin-bottom:14px">
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="btn-blue" onclick="handleCheck()" id="check-btn" style="padding:10px 22px">
+                        <i class="bi bi-search"></i> Check IP
+                    </button>
+                    {% if current_user.role == 'admin' %}
+                    <button class="btn-ghost" onclick="clearVTCache()" style="padding:10px 18px">
+                        <i class="bi bi-arrow-repeat"></i> Clear VT Cache
+                    </button>
+                    {% endif %}
+                </div>
+                <div id="check-result" style="margin-top:16px"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-info-circle-fill"></i> How It Works</span>
+            </div>
+            <div class="panel-body">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:8px;background:var(--danger-light);color:var(--danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px"><i class="bi bi-x-circle-fill"></i></div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">MALICIOUS</div>
+                            <div style="font-size:12px;color:var(--text-muted)">Detected by 2+ security vendors. IP is automatically blocked.</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:8px;background:var(--warning-light);color:var(--warning);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">SUSPICIOUS</div>
+                            <div style="font-size:12px;color:var(--text-muted)">Flagged by 1 vendor or 2+ suspicious reports. Monitored closely.</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <div style="width:32px;height:32px;border-radius:8px;background:var(--success-light);color:var(--success);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px"><i class="bi bi-check-circle-fill"></i></div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">SAFE</div>
+                            <div style="font-size:12px;color:var(--text-muted)">No threats detected by any vendor. IP is considered clean.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function handleCheck() {
+    const ip = document.getElementById('check-ip').value.trim();
+    if (!ip) return showMsg('check-result', 'Please enter an IP address', 'danger');
+    if (!isValidIP(ip)) return showMsg('check-result', 'Invalid IP format (e.g. 192.168.1.1)', 'danger');
+    const btn = document.getElementById('check-btn');
+    const res = document.getElementById('check-result');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Checking...';
+    res.innerHTML = '<div style="text-align:center;padding:20px"><span class="spin"></span><div style="margin-top:8px;color:var(--text-muted);font-size:13px">Querying VirusTotal...</div></div>';
+
+    fetch(`/check-ip/${ip}`).then(r => r.json()).then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Check IP';
+        const cfg = {
+            MALICIOUS:  { cls:'danger',  icon:'x-circle-fill',            label:'MALICIOUS' },
+            SUSPICIOUS: { cls:'warning', icon:'exclamation-triangle-fill', label:'SUSPICIOUS' },
+            SAFE:       { cls:'success', icon:'check-circle-fill',         label:'SAFE' },
+            ERROR:      { cls:'danger',  icon:'wifi-off',                  label:'ERROR' },
+        }[d.status] || { cls:'info', icon:'question-circle-fill', label: d.status };
+
+        res.innerHTML = `
+        <div class="msg msg-${cfg.cls}" style="flex-direction:column;align-items:flex-start;gap:10px;padding:16px">
+            <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">
+                <i class="bi bi-${cfg.icon}"></i> ${ip} — ${cfg.label}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;font-size:12.5px">
+                <div><span style="opacity:.7">Malicious Vendors</span><br><strong>${d.details.malicious_count ?? 0}</strong></div>
+                <div><span style="opacity:.7">Suspicious</span><br><strong>${d.details.suspicious_count ?? 0}</strong></div>
+                <div><span style="opacity:.7">Country</span><br><strong>${d.details.country || 'Unknown'}</strong></div>
+                <div><span style="opacity:.7">Reason</span><br><strong>${d.details.reason || '—'}</strong></div>
+            </div>
+        </div>`;
+    }).catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Check IP';
+        showMsg('check-result', 'Failed to check IP. Check your connection.', 'danger');
+    });
+}
+
+function clearVTCache() {
+    fetch('/clear-vt-cache', { method: 'POST' }).then(r => r.json()).then(d => {
+        showMsg('check-result', d.message, d.status === 'success' ? 'success' : 'danger');
+    });
+}
+
+document.getElementById('check-ip').addEventListener('keydown', e => { if (e.key === 'Enter') handleCheck(); });
+</script>
+{% endblock %}

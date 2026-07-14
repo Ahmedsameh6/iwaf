@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IWAF Dashboard{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+{% if request.endpoint != 'login' %}
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+    <a class="sidebar-brand" href="{{ url_for('dashboard') }}">
+        <div class="brand-icon"><i class="bi bi-shield-fill-check"></i></div>
+        <div class="brand-text">
+            <span class="brand-name">IWAF</span>
+            <span class="brand-sub">Security Dashboard</span>
+        </div>
+    </a>
+
+    <nav class="sidebar-nav-wrap">
+        <div class="nav-section">Overview</div>
+        <ul class="sidebar-nav">
+            <li><a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">
+                <i class="bi bi-grid-1x2-fill"></i> <span>Overview</span>
+            </a></li>
+        </ul>
+
+        <div class="nav-section">Management</div>
+        <ul class="sidebar-nav">
+            <li><a href="{{ url_for('blacklist_page') }}" class="{{ 'active' if request.endpoint == 'blacklist_page' else '' }}">
+                <i class="bi bi-slash-circle-fill"></i> <span>Blacklist</span>
+            </a></li>
+            <li><a href="{{ url_for('trusted_page') }}" class="{{ 'active' if request.endpoint == 'trusted_page' else '' }}">
+                <i class="bi bi-patch-check-fill"></i> <span>Trusted IPs</span>
+            </a></li>
+            {% if current_user.is_authenticated and current_user.role == 'admin' %}
+            <li><a href="{{ url_for('manage_users') }}" class="{{ 'active' if request.endpoint == 'manage_users' else '' }}">
+                <i class="bi bi-people-fill"></i> <span>Manage Users</span>
+            </a></li>
+            {% endif %}
+        </ul>
+
+        <div class="nav-section">Tools</div>
+        <ul class="sidebar-nav">
+            <li><a href="{{ url_for('check_ip_page') }}" class="{{ 'active' if request.endpoint == 'check_ip_page' else '' }}">
+                <i class="bi bi-search"></i> <span>Check IP</span>
+            </a></li>
+            <li><a href="{{ url_for('waf_test_page') }}" class="{{ 'active' if request.endpoint == 'waf_test_page' else '' }}">
+                <i class="bi bi-shield-shaded"></i> <span>WAF Test</span>
+            </a></li>
+            <li><a href="{{ url_for('settings') }}" class="{{ 'active' if request.endpoint == 'settings' else '' }}">
+                <i class="bi bi-gear-fill"></i> <span>Settings</span>
+            </a></li>
+        </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+        {% if current_user.is_authenticated %}
+        <div class="user-info">
+            <div class="user-avatar">{{ current_user.username[0]|upper if current_user.username else 'U' }}</div>
+            <div class="user-meta">
+                <div class="user-name">{{ current_user.username }}</div>
+                <div class="user-role badge-{{ current_user.role }}">{{ current_user.role|capitalize }}</div>
+            </div>
+        </div>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="bi bi-box-arrow-left"></i> <span>Logout</span>
+        </a>
+    </div>
+</aside>
+
+<!-- MAIN WRAP -->
+<div class="main-wrap" id="main-wrap">
+    <!-- TOPBAR -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle Sidebar">
+                <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+            <div class="topbar-bread">
+                <span class="bread-root"><i class="bi bi-house-fill"></i> Dashboards</span>
+                <i class="bi bi-chevron-right bread-sep"></i>
+                <span class="bread-current">{% block breadcrumb %}Overview{% endblock %}</span>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-time" id="topbar-time"></div>
+            <div class="topbar-divider"></div>
+            {% if current_user.is_authenticated %}
+            <div class="topbar-user">
+                <div class="topbar-avatar">{{ current_user.username[0]|upper if current_user.username else 'U' }}</div>
+                <div class="topbar-user-info">
+                    <span class="topbar-username">{{ current_user.username }}</span>
+                    <span class="badge-{{ current_user.role }}">{{ current_user.role|capitalize }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- FLASH MESSAGES -->
+    <div class="flash-wrap">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for cat, msg in messages %}
+        <div class="flash-msg flash-{{ 'success' if cat=='success' else 'danger' }}">
+            <i class="bi bi-{{ 'check-circle-fill' if cat=='success' else 'exclamation-triangle-fill' }}"></i>
+            <span>{{ msg }}</span>
+            <button class="flash-close" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+        </div>
+        {% endfor %}{% endif %}
+    {% endwith %}
+    </div>
+
+    <!-- CONTENT -->
+    <main class="page-body">{% block content %}{% endblock %}</main>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const currentUserRole = "{{ current_user.role if current_user.is_authenticated else '' }}";
+
+// Topbar live clock
+function updateClock() {
+    const now = new Date();
+    const el = document.getElementById('topbar-time');
+    if (el) el.textContent = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Sidebar toggle
+document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('main-wrap').classList.toggle('sidebar-collapsed');
+});
+
+function showMsg(id, text, type = 'success') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const icons = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
+    el.innerHTML = `<div class="inline-msg inline-${type}">
+        <i class="bi bi-${icons[type]||'info-circle-fill'}"></i>
+        <span>${text}</span>
+        <button onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+    </div>`;
+    setTimeout(() => { if (el) el.innerHTML = ''; }, 5000);
+}
+
+function isValidIP(ip) {
+    const parts = ip.trim().split('.');
+    return parts.length === 4 && parts.every(p => /^\d+$/.test(p) && +p >= 0 && +p <= 255);
+}
+</script>
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

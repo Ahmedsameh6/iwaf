@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Settings — IWAF{% endblock %}
+{% block breadcrumb %}Settings{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-gear-fill" style="color:var(--primary);font-size:20px"></i> WAF Settings</div>
+
+{% if current_user.role == 'admin' %}
+<form id="settings-form">
+    <!-- FILE PATHS -->
+    <div class="panel mb-4">
+        <div class="panel-header">
+            <span class="panel-title"><i class="bi bi-folder-fill"></i> File Paths</span>
+        </div>
+        <div class="panel-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="f-label">Blacklist File</label>
+                    <input type="text" class="f-input" name="BLACKLIST_FILE" value="{{ config.BLACKLIST_FILE }}">
+                    <div class="f-hint">Path to the blacklist file</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Trusted IPs File</label>
+                    <input type="text" class="f-input" name="TRUSTED_IPS_FILE" value="{{ config.TRUSTED_IPS_FILE }}">
+                    <div class="f-hint">Path to the trusted IPs file</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Attacker Log File</label>
+                    <input type="text" class="f-input" name="LOG_FILE" value="{{ config.LOG_FILE }}">
+                    <div class="f-hint">Path to the attacker log CSV</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Attack Log File</label>
+                    <input type="text" class="f-input" name="ATTACK_LOG_FILE" value="{{ config.ATTACK_LOG_FILE }}">
+                    <div class="f-hint">Path to the attack details log CSV</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELEGRAM -->
+    <div class="panel mb-4">
+        <div class="panel-header">
+            <span class="panel-title"><i class="bi bi-telegram"></i> Telegram Alerts</span>
+            <span style="font-size:11.5px;color:var(--success);font-weight:600;display:flex;align-items:center;gap:4px">
+                <i class="bi bi-check-circle-fill"></i> Configured
+            </span>
+        </div>
+        <div class="panel-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="f-label">Telegram Bot Token</label>
+                    <input type="password" class="f-input" name="TELEGRAM_BOT_TOKEN" placeholder="Enter new token to update...">
+                    <div class="f-hint">Leave blank to keep current token. Ends in: <code style="background:var(--border-light);padding:1px 5px;border-radius:4px">...{{ config.TELEGRAM_BOT_TOKEN[-8:] if config.TELEGRAM_BOT_TOKEN else 'not set' }}</code></div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Telegram Chat ID</label>
+                    <input type="text" class="f-input" name="TELEGRAM_CHAT_ID" value="{{ config.TELEGRAM_CHAT_ID }}" placeholder="-100123456789">
+                    <div class="f-hint">Chat or group ID where alerts will be sent</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RATE LIMITING -->
+    <div class="panel mb-4">
+        <div class="panel-header">
+            <span class="panel-title"><i class="bi bi-speedometer2"></i> Rate Limiting</span>
+        </div>
+        <div class="panel-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="f-label">Rate Limit (requests / window)</label>
+                    <input type="number" class="f-input" name="RATE_LIMIT" value="{{ config.RATE_LIMIT }}" min="1">
+                    <div class="f-hint">Max requests allowed per IP per window</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Window Size (seconds)</label>
+                    <input type="number" class="f-input" name="WINDOW_SIZE" value="{{ config.WINDOW_SIZE }}" min="1">
+                    <div class="f-hint">Sliding window duration in seconds</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REQUEST LIMITS -->
+    <div class="panel mb-4">
+        <div class="panel-header">
+            <span class="panel-title"><i class="bi bi-shield-exclamation"></i> Request Limits</span>
+        </div>
+        <div class="panel-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="f-label">Max Content Length (bytes)</label>
+                    <input type="number" class="f-input" name="MAX_CONTENT_LENGTH" value="{{ config.MAX_CONTENT_LENGTH }}" min="1">
+                    <div class="f-hint">Maximum allowed request body size</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Max Request Headers</label>
+                    <input type="number" class="f-input" name="MAX_REQUEST_HEADERS" value="{{ config.MAX_REQUEST_HEADERS }}" min="1">
+                    <div class="f-hint">Maximum number of headers per request</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Max Header Size (bytes)</label>
+                    <input type="number" class="f-input" name="MAX_HEADER_SIZE" value="{{ config.MAX_HEADER_SIZE }}" min="1">
+                    <div class="f-hint">Maximum size of a single header</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Max Concurrent Requests per IP</label>
+                    <input type="number" class="f-input" name="MAX_CONCURRENT_REQUESTS_PER_IP" value="{{ config.MAX_CONCURRENT_REQUESTS_PER_IP }}" min="1">
+                    <div class="f-hint">Max simultaneous connections per IP</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TIMEOUTS -->
+    <div class="panel mb-4">
+        <div class="panel-header">
+            <span class="panel-title"><i class="bi bi-clock-fill"></i> Timeouts</span>
+        </div>
+        <div class="panel-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="f-label">Max Processing Time (seconds)</label>
+                    <input type="number" class="f-input" name="MAX_REQUEST_PROCESSING_TIME" value="{{ config.MAX_REQUEST_PROCESSING_TIME }}" min="1">
+                    <div class="f-hint">Requests exceeding this are flagged as slow</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="f-label">Request Timeout (seconds)</label>
+                    <input type="number" class="f-input" name="REQUEST_TIMEOUT" value="{{ config.REQUEST_TIMEOUT }}" min="1">
+                    <div class="f-hint">Hard timeout before request is dropped</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-msg"></div>
+    <button type="submit" class="btn-blue" style="padding:12px 32px;font-size:14px">
+        <i class="bi bi-check2-circle"></i> Save All Settings
+    </button>
+</form>
+
+{% else %}
+<div class="panel">
+    <div class="panel-body">
+        <div class="msg msg-warning">
+            <i class="bi bi-lock-fill" style="margin-right:8px"></i>
+            You need admin privileges to modify settings.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('settings-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Saving...';
+    const data = {};
+    new FormData(this).forEach((v, k) => {
+        if (k === 'TELEGRAM_BOT_TOKEN' && v.trim() === '') return;
+        data[k] = v;
+    });
+    fetch('/update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-circle"></i> Save All Settings';
+        showMsg('settings-msg', d.message, d.status === 'success' ? 'success' : 'danger');
+    }).catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-circle"></i> Save All Settings';
+        showMsg('settings-msg', 'Failed to save settings', 'danger');
+    });
+});
+</script>
+{% endblock %}

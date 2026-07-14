@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — IWAF{% endblock %}
+{% block breadcrumb %}Manage Users{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-people-fill" style="color:var(--primary);font-size:20px"></i> Manage Users</div>
+
+<!-- ADD USER -->
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-person-plus-fill"></i> Add New User</span>
+    </div>
+    <div class="panel-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="f-label">Username</label>
+                    <input type="text" name="username" class="f-input" placeholder="username" required autocomplete="off">
+                </div>
+                <div class="col-md-3">
+                    <label class="f-label">Email</label>
+                    <input type="email" name="email" class="f-input" placeholder="user@example.com" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="f-label">Password</label>
+                    <input type="password" name="password" class="f-input" placeholder="••••••••" required autocomplete="new-password">
+                </div>
+                <div class="col-md-2">
+                    <label class="f-label">Role</label>
+                    <select name="role" class="f-select">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn-blue" style="padding:10px 14px;width:100%">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- USERS TABLE -->
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-table"></i> All Users</span>
+        <span style="font-size:12px;color:var(--text-muted);font-weight:600">{{ users|length }} user{{ 's' if users|length != 1 else '' }}</span>
+    </div>
+    <div style="padding:0;overflow-x:auto">
+        <table class="iwaf-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0">
+                                {{ user[1][0]|upper }}
+                            </div>
+                            <span style="font-weight:600">{{ user[1] }}</span>
+                        </div>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:13px">{{ user[2] }}</td>
+                    <td><span class="badge-{{ user[3] }}">{{ user[3]|capitalize }}</span></td>
+                    <td>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn-ghost" onclick="openEdit({{ user[0] }},'{{ user[1] }}','{{ user[2] }}','{{ user[3] }}')" style="font-size:12px;padding:5px 12px">
+                                <i class="bi bi-pencil-fill"></i> Edit
+                            </button>
+                            <form method="POST" style="display:inline" onsubmit="return confirm('Delete user {{ user[1] }}? This cannot be undone.')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="user_id" value="{{ user[0] }}">
+                                <button type="submit" class="btn-red" style="font-size:12px;padding:5px 12px">
+                                    <i class="bi bi-trash3"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No users found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);padding:30px;width:440px;max-width:95%;box-shadow:var(--shadow-lg);animation:slideDown .2s ease">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+            <div style="font-size:16px;font-weight:800;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+                <i class="bi bi-pencil-square" style="color:var(--primary)"></i> Edit User
+            </div>
+            <button onclick="closeEdit()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);display:flex;align-items:center">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="user_id" id="edit-id">
+            <div style="margin-bottom:16px">
+                <label class="f-label">Username</label>
+                <input type="text" name="username" id="edit-username" class="f-input" required>
+            </div>
+            <div style="margin-bottom:16px">
+                <label class="f-label">Email</label>
+                <input type="email" name="email" id="edit-email" class="f-input" required>
+            </div>
+            <div style="margin-bottom:22px">
+                <label class="f-label">Role</label>
+                <select name="role" id="edit-role" class="f-select">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button type="button" onclick="closeEdit()" class="btn-ghost">Cancel</button>
+                <button type="submit" class="btn-blue"><i class="bi bi-check2"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function openEdit(id, username, email, role) {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-username').value = username;
+    document.getElementById('edit-email').value = email;
+    document.getElementById('edit-role').value = role;
+    document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
+document.getElementById('edit-modal').addEventListener('click', function(e) { if (e.target === this) closeEdit(); });
+</script>
+{% endblock %}

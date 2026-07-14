@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Trusted IPs — IWAF{% endblock %}
+{% block breadcrumb %}Trusted IPs{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-patch-check-fill" style="color:var(--success);font-size:20px"></i> Trusted IPs</div>
+
+{% if current_user.role == 'admin' %}
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-plus-circle-fill"></i> Add Trusted IP</span>
+    </div>
+    <div class="panel-body">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+                <label class="f-label">IP Address to Trust</label>
+                <input type="text" class="f-input" id="trusted-ip" placeholder="e.g., 192.168.1.1" maxlength="15">
+            </div>
+            <button class="btn-green" onclick="handleAdd()" style="padding:10px 22px">
+                <i class="bi bi-patch-plus-fill"></i> Add Trusted IP
+            </button>
+        </div>
+        <div id="trusted-msg"></div>
+    </div>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-list-check"></i> Trusted IP List</span>
+        <span id="trusted-count" style="font-size:12px;color:var(--text-muted);font-weight:600"></span>
+    </div>
+    <div class="panel-body" id="trusted-list">
+        <div style="text-align:center;padding:24px"><span class="spin"></span></div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function fetchTrusted() {
+    fetch('/trusted').then(r => r.json()).then(d => {
+        const el = document.getElementById('trusted-list');
+        const list = (d.trusted_ips || []).sort();
+        const cnt = document.getElementById('trusted-count');
+        cnt.textContent = `${list.length} IP${list.length !== 1 ? 's' : ''}`;
+        el.innerHTML = list.length === 0
+            ? '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px">No trusted IPs configured</div>'
+            : list.map(ip => `
+                <div class="ip-row">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0"></div>
+                        <span class="ip-mono">${ip}</span>
+                    </div>
+                    ${currentUserRole === 'admin' ? `
+                    <button class="btn-ghost" onclick="handleDelete('${ip}')" style="font-size:12px;padding:5px 12px;color:var(--danger);border-color:var(--danger-light)">
+                        <i class="bi bi-x-circle"></i> Remove
+                    </button>` : ''}
+                </div>`).join('');
+    });
+}
+
+function handleAdd() {
+    const ip = document.getElementById('trusted-ip').value.trim();
+    if (!ip) return showMsg('trusted-msg', 'Please enter an IP address', 'danger');
+    if (!isValidIP(ip)) return showMsg('trusted-msg', 'Invalid IP address format', 'danger');
+    fetch(`/trusted/add/${ip}`, { method: 'POST' }).then(r => r.json()).then(d => {
+        showMsg('trusted-msg', d.message, d.status === 'success' ? 'success' : 'info');
+        if (d.status === 'success') { document.getElementById('trusted-ip').value = ''; fetchTrusted(); }
+    }).catch(() => showMsg('trusted-msg', 'Request failed', 'danger'));
+}
+
+function handleDelete(ip) {
+    if (!confirm(`Remove ${ip} from trusted list?`)) return;
+    fetch(`/trusted/remove/${ip}`, { method: 'POST' }).then(r => r.json()).then(d => {
+        showMsg('trusted-msg', d.message, d.status === 'success' ? 'success' : 'info');
+        fetchTrusted();
+    });
+}
+
+document.getElementById('trusted-ip')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
+document.addEventListener('DOMContentLoaded', fetchTrusted);
+</script>
+{% endblock %}

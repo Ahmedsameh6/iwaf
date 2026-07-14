@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}Overview — IWAF{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="bi bi-grid-1x2-fill" style="color:var(--primary);font-size:20px"></i> Overview</div>
+
+<!-- STAT CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card danger">
+            <div class="stat-icon"><i class="bi bi-slash-circle-fill"></i></div>
+            <div class="stat-label">Blacklisted IPs</div>
+            <div class="stat-value" id="blacklist-size"><span class="spin"></span></div>
+            <div class="stat-sub">Total blocked addresses</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card success">
+            <div class="stat-icon"><i class="bi bi-patch-check-fill"></i></div>
+            <div class="stat-label">Trusted IPs</div>
+            <div class="stat-value" id="trusted-ips-count"><span class="spin"></span></div>
+            <div class="stat-sub">Whitelisted addresses</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card warning">
+            <div class="stat-icon"><i class="bi bi-activity"></i></div>
+            <div class="stat-label">Active IPs</div>
+            <div class="stat-value" id="active-ips"><span class="spin"></span></div>
+            <div class="stat-sub">Active in last 5 min</div>
+        </div>
+    </div>
+</div>
+
+<!-- HIGH RATE + ATTACK CHART -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-speedometer2"></i> High Rate IPs</span>
+            </div>
+            <div class="panel-body">
+                <div class="monitor-box" id="high-rate-box"><span class="spin"></span></div>
+            </div>
+            <div class="panel-header" style="border-top:1px solid var(--border-light);border-bottom:none">
+                <span class="panel-title"><i class="bi bi-hourglass-split"></i> Slow Offenders</span>
+            </div>
+            <div class="panel-body" style="padding-top:10px">
+                <div class="monitor-box" id="slow-box"><span class="spin"></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <span class="panel-title"><i class="bi bi-bar-chart-fill"></i> Attack Distribution</span>
+                {% if current_user.role == 'admin' %}
+                <button class="btn-red" onclick="deleteLog('attack')" style="font-size:11.5px;padding:5px 12px">
+                    <i class="bi bi-trash3"></i> Clear Log
+                </button>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                <div style="position:relative;height:200px">
+                    <canvas id="attack-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ATTACKER LOG -->
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-person-x-fill"></i> Attacker Log</span>
+        <div class="btn-group-right">
+            <a href="{{ url_for('export_attacker_log') }}" class="btn-green" style="font-size:12px;padding:5px 14px">
+                <i class="bi bi-download"></i> Export
+            </a>
+            {% if current_user.role == 'admin' %}
+            <button class="btn-red" onclick="deleteLog('attacker')" style="font-size:12px;padding:5px 12px">
+                <i class="bi bi-trash3"></i> Clear
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <div style="padding:0;overflow-x:auto">
+        <table class="iwaf-table">
+            <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>MAC Address</th>
+                    <th>Req. Count</th>
+                    <th>Timestamp</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody id="attacker-log-table">
+                <tr><td colspan="5" style="text-align:center;padding:24px"><span class="spin"></span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ATTACK LOG DETAILS -->
+<div class="panel mb-4">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-bug-fill"></i> Attack Log (Details)</span>
+        <div class="btn-group-right">
+            <a href="{{ url_for('export_attack_log') }}" class="btn-green" style="font-size:12px;padding:5px 14px">
+                <i class="bi bi-download"></i> Export
+            </a>
+            {% if current_user.role == 'admin' %}
+            <button class="btn-red" onclick="deleteLog('attack')" style="font-size:12px;padding:5px 12px">
+                <i class="bi bi-trash3"></i> Clear
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <div style="padding:0;overflow-x:auto">
+        <table class="iwaf-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Type</th>
+                    <th>Source IP</th>
+                    <th>URL</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="attack-log-table">
+                <tr><td colspan="5" style="text-align:center;padding:24px"><span class="spin"></span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECURITY LOG -->
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title"><i class="bi bi-journal-text"></i> Security Log</span>
+        {% if current_user.role == 'admin' %}
+        <button class="btn-red" onclick="deleteLog('security')" style="font-size:12px;padding:5px 12px">
+            <i class="bi bi-trash3"></i> Clear
+        </button>
+        {% endif %}
+    </div>
+    <div class="panel-body">
+        <div class="log-box" id="security-log-content"><span class="spin"></span></div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+let attackChart = null;
+
+const VIOLATION_COLORS = {
+    sql_injection:    '#ef4444',
+    xss:              '#f59e0b',
+    command_injection:'#8b5cf6',
+    lfi:              '#06b6d4',
+    crlf:             '#ec4899',
+    ssti:             '#10b981',
+    unknown:          '#6b7280'
+};
+
+function loadStats() {
+    fetch('/stats').then(r => r.json()).then(d => {
+        document.getElementById('blacklist-size').textContent     = d.blacklist_size ?? 0;
+        document.getElementById('trusted-ips-count').textContent  = d.trusted_ips_count ?? 0;
+        document.getElementById('active-ips').textContent         = d.active_ips ?? 0;
+
+        const hrBox = document.getElementById('high-rate-box');
+        const hrIPs = Object.entries(d.high_rate_ips || {});
+        hrBox.innerHTML = hrIPs.length === 0
+            ? '<span style="font-style:italic">No high-rate IPs detected</span>'
+            : hrIPs.map(([ip, c]) => `
+                <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-light);font-style:normal;color:var(--text-primary)">
+                    <span style="font-family:monospace;font-size:13px">${ip}</span>
+                    <span style="color:var(--danger);font-weight:700;font-size:12px">${c} req</span>
+                </div>`).join('');
+
+        const slBox = document.getElementById('slow-box');
+        const slIPs = Object.entries(d.slow_request_offenders || {}).filter(([,v]) => v > 0);
+        slBox.innerHTML = slIPs.length === 0
+            ? '<span style="font-style:italic">No slow request offenders</span>'
+            : slIPs.map(([ip, c]) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-light);font-style:normal;color:var(--text-primary)">
+                    <span style="font-family:monospace;font-size:13px">${ip}: ${c} slow</span>
+                    ${currentUserRole==='admin' ? `<button class="btn-red" style="padding:3px 9px;font-size:11px" onclick="resetSlow('${ip}')"><i class="bi bi-arrow-counterclockwise"></i></button>` : ''}
+                </div>`).join('');
+    }).catch(() => {});
+}
+
+function loadAttackerLog() {
+    fetch('/attacker-log').then(r => r.json()).then(d => {
+        const tb = document.getElementById('attacker-log-table');
+        const logs = d.logs || [];
+        tb.innerHTML = logs.length === 0
+            ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No attacker logs</td></tr>'
+            : logs.slice(-50).reverse().map(row => `<tr>
+                <td style="font-family:monospace;font-weight:600">${row['IP Address']||''}</td>
+                <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">${row['MAC Address']||'N/A'}</td>
+                <td><span style="font-weight:600">${row['Request Count']||''}</span></td>
+                <td style="font-size:12px;color:var(--text-muted)">${row['Timestamp']||''}</td>
+                <td><span style="background:var(--danger-light);color:var(--danger-dark);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${row['Reason']||''}</span></td>
+              </tr>`).join('');
+    }).catch(() => {});
+}
+
+function loadAttackLog() {
+    fetch('/attack-log').then(r => r.json()).then(d => {
+        const tb = document.getElementById('attack-log-table');
+        const logs = d.logs || [];
+        tb.innerHTML = logs.length === 0
+            ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No attack logs</td></tr>'
+            : logs.slice(-50).reverse().map(row => {
+                const col = VIOLATION_COLORS[row.violation_type] || '#6b7280';
+                return `<tr>
+                    <td style="font-size:12px;color:var(--text-muted)">${row.timestamp||''}</td>
+                    <td><span style="background:${col}18;color:${col};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${row.violation_type||''}</span></td>
+                    <td style="font-family:monospace;font-weight:600">${row.source_ip||''}</td>
+                    <td style="font-size:11.5px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)" title="${row.requested_url||''}">${row.requested_url||''}</td>
+                    <td><span style="color:var(--danger);font-weight:700;font-size:12px">${row.device_action||'blocked'}</span></td>
+                </tr>`;
+            }).join('');
+    }).catch(() => {});
+}
+
+function loadSecurityLog() {
+    fetch('/security-log').then(r => r.json()).then(d => {
+        const box = document.getElementById('security-log-content');
+        box.textContent = (d.logs || []).join('') || 'No security log entries.';
+        box.scrollTop = box.scrollHeight;
+    }).catch(() => {});
+}
+
+function loadAttackChart() {
+    fetch('/attack-log').then(r => r.json()).then(d => {
+        const counts = {};
+        (d.logs || []).forEach(row => {
+            const t = row.violation_type || 'unknown';
+            counts[t] = (counts[t] || 0) + 1;
+        });
+        const labels = Object.keys(counts);
+        const values = Object.values(counts);
+        const colors = labels.map(l => VIOLATION_COLORS[l] || '#6b7280');
+        const ctx = document.getElementById('attack-chart').getContext('2d');
+        if (attackChart) attackChart.destroy();
+        if (labels.length === 0) {
+            document.getElementById('attack-chart').parentElement.innerHTML =
+                '<div style="text-align:center;color:var(--text-muted);padding:50px 0;font-size:13px"><i class="bi bi-shield-check" style="font-size:32px;display:block;margin-bottom:8px;opacity:.3"></i>No attack data yet</div>';
+            return;
+        }
+        attackChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors.map(c => c + '22'),
+                    borderColor: colors,
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11, family: 'Inter' }, color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { font: { size: 12, family: 'Inter' }, color: '#6b7280' } }
+                }
+            }
+        });
+    }).catch(() => {});
+}
+
+function resetSlow(ip) {
+    fetch(`/reset-slow-counter/${ip}`, { method: 'POST' }).then(() => loadStats());
+}
+
+function deleteLog(type) {
+    const labels = { attack: 'Attack', attacker: 'Attacker', security: 'Security' };
+    if (!confirm(`Delete ${labels[type]||type} log? This cannot be undone.`)) return;
+    fetch(`/delete-log/${type}`, { method: 'POST' }).then(r => r.json()).then(d => {
+        loadAll();
+    });
+}
+
+function loadAll() {
+    loadStats();
+    loadAttackerLog();
+    loadAttackLog();
+    loadAttackChart();
+    loadSecurityLog();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadAll();
+    setInterval(loadStats, 10000);
+    setInterval(loadSecurityLog, 15000);
+});
+</script>
+{% endblock %}
